@@ -12,7 +12,7 @@ pipeline {
     triggers {
         cron('H 8 * * *')
     }
-    
+
  stages {
 
         stage('Install dependencies') {
@@ -24,10 +24,7 @@ pipeline {
 
         stage('Ejecutar script') {
             steps {
-                sh '''
-                . $VENV/bin/activate
-                python3 scripts/check_insiders.py
-                '''
+                sh 'python3 scripts/check_insiders.py'
             }
         }
     }
