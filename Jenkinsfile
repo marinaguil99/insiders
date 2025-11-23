@@ -6,17 +6,19 @@ pipeline {
         SENDGRID_KEY = credentials('sendgrid_api_key')
         EMAIL_FROM = credentials('sendgrid_sender')
         EMAIL_TO = credentials('alert_email')
-        VENV = 'venv'
     }
 
+    // Ejecutar automáticamente todos los días a las 8h (cron)
+    triggers {
+        cron('H 8 * * *')
+    }
+    
  stages {
-        stage('Preparar entorno') {
+
+        stage('Install dependencies') {
             steps {
-                sh '''
-                python3 -m venv $VENV
-                . $VENV/bin/activate
-                pip install --break-system-packages --no-cache-dir -r requirements.txt
-                '''
+                // Instalamos las librerías Python necesarias usando --break-system-packages
+                sh 'python3 -m pip install --break-system-packages --no-cache-dir -r requirements.txt'
             }
         }
 
