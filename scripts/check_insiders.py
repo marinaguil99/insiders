@@ -64,27 +64,25 @@ def format_email(events, symbol):
 
 # --- Comprobar insiders ---
 def check_symbol(symbol, notified):
-    print(f"[{datetime.utcnow()}] 🔎 Comprobando insiders de {symbol}")
     try:
         data = client.stock_insider_transactions(symbol)
     except Exception as e:
-        print(f"Error consultando {symbol}: {e}")
+        print(f"❌ Error consultando {symbol}: {e}")
         return notified
 
     transactions = data.get("data", [])
     new_events = []
 
     for t in transactions:
-        # Solo compras (P) y ventas (S)
         if t["transactionCode"] not in ["P", "S"]:
             continue
-
         event_id = f"{t['symbol']}-{t['filingDate']}-{t['name']}-{t['transactionCode']}"
         if event_id not in notified:
             new_events.append(t)
             notified[event_id] = True
 
     if new_events:
+        print(f"🟢 Nuevas transacciones de insiders en {symbol}: {len(new_events)}")
         html = format_email(new_events, symbol)
         send_email(f"Insider Alert: {symbol}", html)
 
@@ -94,9 +92,16 @@ def check_symbol(symbol, notified):
 if __name__ == "__main__":
     tickers = load_tickers()
     notified = load_notified()
+    total_new = 0
 
     for sym in tickers:
+        before = len(notified)
         notified = check_symbol(sym, notified)
+        total_new += len(notified) - before
+
+    if total_new == 0:
+        print("No hay nuevas transacciones de insiders hoy.")
+    else:
+        print(f"✔ Total nuevas transacciones enviadas: {total_new}")
 
     save_notified(notified)
-    print("✔ Finalizado.")
