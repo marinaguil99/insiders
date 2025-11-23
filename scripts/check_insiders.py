@@ -1,78 +1,102 @@
-import requests
+import finnhub
 import json
 import os
 from datetime import datetime
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
-API_KEY = os.environ.get("FINNHUB_API_KEY")
-BASE_URL = "https://finnhub.io/api/v1/stock/insider-transactions"
+# --- Variables de entorno ---
+FINNHUB_KEY = os.environ.get("FINNHUB_KEY")
+SENDGRID_KEY = os.environ.get("SENDGRID_KEY")
+EMAIL_FROM = os.environ.get("EMAIL_FROM")
+EMAIL_TO = os.environ.get("EMAIL_TO")
 
-# tickers.txt ahora está en la raíz del proyecto
+# --- Archivos ---
 TICKERS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tickers.txt")
-NOTIFIED_FILE = os.path.join(os.path.dirname(__file__), "..", "notified_insiders.json")
+NOTIFIED_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "notified_insiders.json")
 
+# --- Inicialización Finnhub ---
+client = finnhub.Client(api_key=FINNHUB_KEY)
 
+# --- Cargar tickers ---
 def load_tickers():
     with open(TICKERS_FILE, "r") as f:
-        tickers = [line.strip() for line in f.readlines() if line.strip()]
-    return tickers
+        return [line.strip() for line in f if line.strip()]
 
-
+# --- Cargar historial de notificaciones ---
 def load_notified():
-    if not os.path.exists(NOTIFIED_FILE):
-        return {}
-    with open(NOTIFIED_FILE, "r") as f:
-        return json.load(f)
-
+    if os.path.exists(NOTIFIED_FILE):
+        with open(NOTIFIED_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
 def save_notified(data):
     with open(NOTIFIED_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
+# --- Enviar email ---
+def send_email(subject, content):
+    message = Mail(
+        from_email=EMAIL_FROM,
+        to_emails=EMAIL_TO,
+        subject=subject,
+        html_content=content
+    )
+    sg = SendGridAPIClient(SENDGRID_KEY)
+    sg.send(message)
 
-def fetch_insider_activity(symbol):
-    params = {"symbol": symbol, "token": API_KEY}
+# --- Formatear contenido del email ---
+def format_email(events, symbol):
+    html = f"<h2>🔔 Nuevas transacciones de insiders en {symbol}</h2>"
+    for e in events:
+        tipo = "Compra" if e.get('transactionCode') == "P" else "Venta"
+        html += f"""
+        <p>
+        <b>Nombre:</b> {e.get('name')}<br>
+        <b>Cargo:</b> {e.get('position')}<br>
+        <b>Fecha:</b> {e.get('filingDate')}<br>
+        <b>Tipo:</b> {tipo}<br>
+        <b>Acciones:</b> {e.get('transactionShares')}<br>
+        <b>Precio:</b> {e.get('transactionPrice')}<br>
+        </p><hr>
+        """
+    return html
+
+# --- Comprobar insiders ---
+def check_symbol(symbol, notified):
+    print(f"[{datetime.utcnow()}] 🔎 Comprobando insiders de {symbol}")
     try:
-        r = requests.get(BASE_URL, params=params)
-        r.raise_for_status()
-        return r.json()
+        data = client.stock_insider_transactions(symbol)
     except Exception as e:
-        print(f"❌ Error consultando insiders de {symbol}: {e}")
-        return None
+        print(f"Error consultando {symbol}: {e}")
+        return notified
 
+    transactions = data.get("data", [])
+    new_events = []
 
-def main():
-    tickers = load_tickers()
-    notified = load_notified()
-    print(f"[{datetime.utcnow()}] 🔎 Comprobando insider trading...")
-
-    for ticker in tickers:
-        print(f"\n--- {ticker} ---")
-        data = fetch_insider_activity(ticker)
-
-        if not data or "data" not in data:
+    for t in transactions:
+        # Solo compras (P) y ventas (S)
+        if t["transactionCode"] not in ["P", "S"]:
             continue
 
-        new_buys = []
+        event_id = f"{t['symbol']}-{t['filingDate']}-{t['name']}-{t['transactionCode']}"
+        if event_id not in notified:
+            new_events.append(t)
+            notified[event_id] = True
 
-        for op in data["data"]:
-            if op["transactionCode"] != "P":  # "P" = Purchase
-                continue
+    if new_events:
+        html = format_email(new_events, symbol)
+        send_email(f"Insider Alert: {symbol}", html)
 
-            key = f"{ticker}-{op['filingDate']}-{op['name']}"
-            if key not in notified:
-                new_buys.append(op)
-                notified[key] = True
+    return notified
 
-        if new_buys:
-            print(f"🟢 NUEVAS COMPRAS DE INSIDERS EN {ticker}:")
-            for op in new_buys:
-                print(f"  - {op['name']} compró {op['transactionShares']} acciones el {op['transactionDate']}")
-        else:
-            print("No hay nuevas compras.")
+# --- Main ---
+if __name__ == "__main__":
+    tickers = load_tickers()
+    notified = load_notified()
+
+    for sym in tickers:
+        notified = check_symbol(sym, notified)
 
     save_notified(notified)
-    print("\n✔ Finalizado.")
-
-
-if __name__ == "__main__":
-    main()
+    print("✔ Finalizado.")
