@@ -23,7 +23,7 @@ INSIDERS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "inside
 # --- Inicialización Finnhub ---
 client = finnhub.Client(api_key=FINNHUB_KEY)
 
-# --- Cargar datos ---
+# --- Obtiene el role del insider ---
 def get_role(name):
     with open(INSIDERS_FILE, "r") as f:
         data = json.load(f)
@@ -33,6 +33,7 @@ def get_role(name):
             return role
     return None    
 
+# --- Cargar tickets ---
 def load_tickers():
     with open(TICKERS_FILE, "r") as f:
         return [line.strip() for line in f if line.strip()]
@@ -63,14 +64,9 @@ def send_email(subject, content):
 def format_email(events, symbol):
     html = f"<h2>🔔 Nuevas transacciones de insiders en {symbol}</h2>"
     for e in events:
-        t_date = datetime.strptime(e.get('filingDate'), "%Y-%m-%d")
-
-        if t_date.year != current_year or t_date.month != current_month:
-            continue     
-
         position = get_role(e.get('name')) 
-
         tipo = "Compra" if e.get('transactionCode') == "P" else "Venta"
+
         html += f"""
         <p>
         <b>Nombre:</b> {e.get('name')}<br>
@@ -97,6 +93,11 @@ def check_symbol(symbol, notified):
     for t in transactions:
         if t["transactionCode"] not in ["P", "S"]:
             continue
+
+        t_date = datetime.strptime(e.get('filingDate'), "%Y-%m-%d")
+        if t_date.year != current_year or t_date.month != current_month:
+            continue  
+
         event_id = f"{t['symbol']}-{t['filingDate']}-{t['name']}-{t['transactionCode']}"
         if event_id not in notified:
             new_events.append(t)
