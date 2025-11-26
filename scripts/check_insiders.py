@@ -53,11 +53,6 @@ def send_email(subject, content):
 def format_email(events, symbol):
     html = f"<h2>🔔 Nuevas transacciones de insiders en {symbol}</h2>"
     for e in events:
-        t_date = datetime.strptime(e.get('filingDate'), "%Y-%m-%d")
-
-        if t_date.year != current_year or t_date.month != current_month:
-            continue      
-
         tipo = "Compra" if e.get('transactionCode') == "P" else "Venta"
         html += f"""
         <p>
@@ -85,6 +80,11 @@ def check_symbol(symbol, notified):
     for t in transactions:
         if t["transactionCode"] not in ["P", "S"]:
             continue
+            
+        t_date = datetime.strptime(t['filingDate'], "%Y-%m-%d")
+        if t_date.year != current_year or t_date.month != current_month:
+            continue  
+
         event_id = f"{t['symbol']}-{t['filingDate']}-{t['name']}-{t['transactionCode']}"
         if event_id not in notified:
             new_events.append(t)
