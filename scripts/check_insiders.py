@@ -28,7 +28,7 @@ def get_role(name):
     with open(INSIDERS_FILE, "r") as f:
         data = json.load(f)
 
-    for role, names in data_dict.items():
+    for role, names in data.items():
         if name in names:
             return role
     return None    
