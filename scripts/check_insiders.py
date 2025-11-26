@@ -55,8 +55,7 @@ def format_email(events, symbol):
     for e in events:
         t_date = datetime.strptime(e.get('filingDate'), "%Y-%m-%d")
 
-        print(t_date.year, current_year, t_date.month, current_month)
-        if t_date.year != current_year and t_date.month != current_month:
+        if t_date.year != current_year or t_date.month != current_month:
             continue      
 
         tipo = "Compra" if e.get('transactionCode') == "P" else "Venta"
