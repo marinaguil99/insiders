@@ -5,10 +5,6 @@ from datetime import datetime
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
-now = datetime.now()
-current_year = now.year
-current_month = now.month
-
 # --- Variables de entorno ---
 FINNHUB_KEY = os.environ.get("FINNHUB_KEY")
 SENDGRID_KEY = os.environ.get("SENDGRID_KEY")
@@ -72,18 +68,27 @@ def check_symbol(symbol, notified):
         data = client.stock_insider_transactions(symbol)
     except Exception as e:
         print(f"❌ Error consultando {symbol}: {e}")
-        return notified
+        return [], notified  # <-- Devuelve lista vacía si falla
 
     transactions = data.get("data", [])
     new_events = []
 
+    now = datetime.now()
+    current_year = now.year
+    current_month = now.month
+
     for t in transactions:
         if t["transactionCode"] not in ["P", "S"]:
             continue
-            
-        t_date = datetime.strptime(t['filingDate'], "%Y-%m-%d")
+
+        try:
+            t_date = datetime.strptime(t['filingDate'], "%Y-%m-%d")
+        except Exception as e:
+            print(f"❌ Error parseando fecha {t.get('filingDate')}: {e}")
+            continue
+
         if t_date.year != current_year or t_date.month != current_month:
-            continue  
+            continue  # <-- Filtra solo transacciones del mes actual
 
         event_id = f"{t['symbol']}-{t['filingDate']}-{t['name']}-{t['transactionCode']}"
         if event_id not in notified:
@@ -95,7 +100,7 @@ def check_symbol(symbol, notified):
         html = format_email(new_events, symbol)
         send_email(f"Insider Alert: {symbol}", html)
 
-    return notified
+    return new_events, notified
 
 # --- Main ---
 if __name__ == "__main__":
@@ -104,12 +109,11 @@ if __name__ == "__main__":
     total_new = 0
 
     for sym in tickers:
-        before = len(notified)
-        notified = check_symbol(sym, notified)
-        total_new += len(notified) - before
+        new_events, notified = check_symbol(sym, notified)
+        total_new += len(new_events)  # <-- Solo contamos transacciones del mes actual
 
     if total_new == 0:
-        print("No hay nuevas transacciones de insiders hoy.")
+        print("No hay nuevas transacciones de insiders este mes.")
     else:
         print(f"✔ Total nuevas transacciones enviadas: {total_new}")
 
