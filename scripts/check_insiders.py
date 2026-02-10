@@ -109,7 +109,15 @@ def check_symbol(symbol, notified):
             continue
 
         # ID único REAL (evita duplicados el mismo día)
-        event_id = f"{t['symbol']}-{t['transactionDate']}-{t['name']}-{t['transactionShares']}-{t['transactionPrice']}"
+        event_id = (
+                        f"{t.get('symbol')}-"
+                        f"{t.get('transactionDate')}-"
+                        f"{t.get('filingDate')}-"
+                        f"{t.get('name')}-"
+                        f"{t.get('transactionCode')}-"
+                        f"{t.get('transactionShares')}-"
+                        f"{t.get('transactionPrice')}"
+                    )
 
         if event_id not in notified:
             new_events.append(t)
