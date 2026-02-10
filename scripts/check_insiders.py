@@ -17,7 +17,7 @@ EMAIL_TO = os.environ.get("EMAIL_TO")
 
 # --- Archivos ---
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-TICKERS_FILE = os.path.join(BASE_DIR, "tickers1.txt")
+TICKERS_FILE = os.path.join(BASE_DIR, "tickers.txt")
 NOTIFIED_FILE = os.path.join(BASE_DIR, "notified_insiders.json")
 INSIDERS_FILE = os.path.join(BASE_DIR, "insiders.json")
 
