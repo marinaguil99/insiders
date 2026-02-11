@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+import webbrowser
 
 now = datetime.now()
 current_year = now.year
@@ -33,6 +34,13 @@ def get_role(name):
         data = json.load(f)
 
     return data.get(name)
+
+# --- Guardar en un html ---
+def save_html_report(content):
+    report_path = os.path.join(BASE_DIR, "insiders_report.html")
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"📄 Reporte generado en: {report_path}")
 
 # --- Cargar tickers ---
 def load_tickers():
@@ -168,8 +176,11 @@ if __name__ == "__main__":
         print("No hay nuevas transacciones de insiders este mes.")
     else:
         html = format_full_email(all_events_by_symbol)
-        print(html)
+        save_html_report(html)
         #send_email("Insider Alert - Resumen diario", html)
         print(f"✔ Email enviado con {len(all_events_by_symbol)} empresas.")
 
     save_notified(notified)
+
+    path = "/var/jenkins_home/workspace/Insiders_operaciones/insiders_report.html"
+    webbrowser.open(f"file://{path}")
