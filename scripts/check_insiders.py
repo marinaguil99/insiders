@@ -52,6 +52,10 @@ def save_notified(data):
 
 # --- Enviar email ---
 def send_email(subject, content):
+    if not SENDGRID_KEY:
+        print("❌ SENDGRID_KEY no definida")
+        return
+
     message = Mail(
         from_email=EMAIL_FROM,
         to_emails=EMAIL_TO,
