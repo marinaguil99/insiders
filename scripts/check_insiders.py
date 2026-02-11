@@ -168,7 +168,8 @@ if __name__ == "__main__":
         print("No hay nuevas transacciones de insiders este mes.")
     else:
         html = format_full_email(all_events_by_symbol)
-        send_email("Insider Alert - Resumen diario", html)
+        print(html)
+        #send_email("Insider Alert - Resumen diario", html)
         print(f"✔ Email enviado con {len(all_events_by_symbol)} empresas.")
 
     save_notified(notified)
