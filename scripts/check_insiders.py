@@ -61,6 +61,31 @@ def send_email(subject, content):
     sg = SendGridAPIClient(SENDGRID_KEY)
     sg.send(message)
 
+# --- Formato correo final ---
+def format_full_email(all_events_by_symbol):
+    html = "<h2>🔔 Resumen de nuevas transacciones de insiders</h2>"
+
+    for symbol, events in all_events_by_symbol.items():
+        html += f"<h3>📌 {symbol}</h3>"
+
+        for e in events:
+            position = get_role(e.get('name'))
+            tipo = "Compra" if e.get('transactionCode') == "P" else "Venta"
+
+            html += f"""
+            <p>
+            <b>Nombre:</b> {e.get('name')}<br>
+            <b>Cargo:</b> {position}<br>
+            <b>Fecha transacción:</b> {e.get('transactionDate')}<br>
+            <b>Fecha reporte:</b> {e.get('filingDate')}<br>
+            <b>Tipo:</b> {tipo}<br>
+            <b>Acciones:</b> {e.get('transactionShares')}<br>
+            <b>Precio:</b> {e.get('transactionPrice')}<br>
+            </p><hr>
+            """
+
+    return html
+
 # --- Formatear contenido del email ---
 def format_email(events, symbol):
     html = f"<h2>🔔 Nuevas transacciones de insiders en {symbol}</h2>"
@@ -88,7 +113,7 @@ def check_symbol(symbol, notified):
         data = client.stock_insider_transactions(symbol)
     except Exception as e:
         print(f"❌ Error consultando {symbol}: {e}")
-        return notified
+        return [], notified
 
     transactions = data.get("data", [])
     new_events = []
@@ -97,53 +122,49 @@ def check_symbol(symbol, notified):
         if t.get("transactionCode") not in ["P", "S"]:
             continue
 
-        # Usar la fecha REAL de la transacción
         t_date_str = t.get('transactionDate')
         if not t_date_str:
             continue
 
         t_date = datetime.strptime(t_date_str, "%Y-%m-%d")
 
-        # Solo transacciones del mes actual
         if t_date.year != current_year or t_date.month != current_month:
             continue
 
-        # ID único REAL (evita duplicados el mismo día)
         event_id = (
-                        f"{t.get('symbol')}-"
-                        f"{t.get('transactionDate')}-"
-                        f"{t.get('filingDate')}-"
-                        f"{t.get('name')}-"
-                        f"{t.get('transactionCode')}-"
-                        f"{t.get('transactionShares')}-"
-                        f"{t.get('transactionPrice')}"
-                    )
+            f"{t.get('symbol')}-"
+            f"{t.get('transactionDate')}-"
+            f"{t.get('filingDate')}-"
+            f"{t.get('name')}-"
+            f"{t.get('transactionCode')}-"
+            f"{t.get('transactionShares')}-"
+            f"{t.get('transactionPrice')}"
+        )
 
         if event_id not in notified:
             new_events.append(t)
             notified[event_id] = True
 
-    if new_events:
-        print(f"🟢 Nuevas transacciones de insiders en {symbol}: {len(new_events)}")
-        html = format_email(new_events, symbol)
-        send_email(f"Insider Alert: {symbol}", html)
+    return new_events, notified
 
-    return notified
 
 # --- Main ---
 if __name__ == "__main__":
     tickers = load_tickers()
     notified = load_notified()
-    total_new = 0
+
+    all_events_by_symbol = {}
 
     for sym in tickers:
-        before = len(notified)
-        notified = check_symbol(sym, notified)
-        total_new += len(notified) - before
+        events, notified = check_symbol(sym, notified)
+        if events:
+            all_events_by_symbol[sym] = events
 
-    if total_new == 0:
+    if not all_events_by_symbol:
         print("No hay nuevas transacciones de insiders este mes.")
     else:
-        print(f"✔ Total nuevas transacciones enviadas: {total_new}")
+        html = format_full_email(all_events_by_symbol)
+        send_email("Insider Alert - Resumen diario", html)
+        print(f"✔ Email enviado con {len(all_events_by_symbol)} empresas.")
 
     save_notified(notified)
