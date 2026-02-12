@@ -6,9 +6,9 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import base64
 import pickle
-from email.mime.text import MIMEText
-from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
+#from email.mime.text import MIMEText
+#from googleapiclient.discovery import build
+#from google.auth.transport.requests import Request
 
 now = datetime.now()
 current_year = now.year
