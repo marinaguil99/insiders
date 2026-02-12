@@ -4,7 +4,11 @@ import os
 from datetime import datetime
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-import webbrowser
+import base64
+import pickle
+from email.mime.text import MIMEText
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 
 now = datetime.now()
 current_year = now.year
@@ -35,13 +39,6 @@ def get_role(name):
 
     return data.get(name)
 
-# --- Guardar en un html ---
-def save_html_report(content):
-    report_path = os.path.join(BASE_DIR, "insiders_report.html")
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    print(f"📄 Reporte generado en: {report_path}")
-
 # --- Cargar tickers ---
 def load_tickers():
     with open(TICKERS_FILE, "r") as f:
@@ -60,18 +57,24 @@ def save_notified(data):
 
 # --- Enviar email ---
 def send_email(subject, content):
-    if not SENDGRID_KEY:
-        print("❌ SENDGRID_KEY no definida")
-        return
+    with open("token.pickle", "rb") as token:
+        creds = pickle.load(token)
 
-    message = Mail(
-        from_email=EMAIL_FROM,
-        to_emails=EMAIL_TO,
-        subject=subject,
-        html_content=content
-    )
-    sg = SendGridAPIClient(SENDGRID_KEY)
-    sg.send(message)
+    service = build('gmail', 'v1', credentials=creds)
+
+    message = MIMEText(content, 'html')
+    message['to'] = EMAIL_TO
+    message['from'] = EMAIL_FROM
+    message['subject'] = subject
+
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+
+    service.users().messages().send(
+        userId='me',
+        body={'raw': raw}
+    ).execute()
+
+    print("📧 Email enviado con Gmail API")
 
 # --- Formato correo final ---
 def format_full_email(all_events_by_symbol):
@@ -96,27 +99,6 @@ def format_full_email(all_events_by_symbol):
             </p><hr>
             """
 
-    return html
-
-# --- Formatear contenido del email ---
-def format_email(events, symbol):
-    html = f"<h2>🔔 Nuevas transacciones de insiders en {symbol}</h2>"
-
-    for e in events:
-        position = get_role(e.get('name'))
-        tipo = "Compra" if e.get('transactionCode') == "P" else "Venta"
-
-        html += f"""
-        <p>
-        <b>Nombre:</b> {e.get('name')}<br>
-        <b>Cargo:</b> {position}<br>
-        <b>Fecha transacción:</b> {e.get('transactionDate')}<br>
-        <b>Fecha reporte:</b> {e.get('filingDate')}<br>
-        <b>Tipo:</b> {tipo}<br>
-        <b>Acciones:</b> {e.get('transactionShares')}<br>
-        <b>Precio:</b> {e.get('transactionPrice')}<br>
-        </p><hr>
-        """
     return html
 
 # --- Comprobar insiders ---
@@ -176,11 +158,8 @@ if __name__ == "__main__":
         print("No hay nuevas transacciones de insiders este mes.")
     else:
         html = format_full_email(all_events_by_symbol)
-        save_html_report(html)
+        print(html)
         #send_email("Insider Alert - Resumen diario", html)
         print(f"✔ Email enviado con {len(all_events_by_symbol)} empresas.")
 
     save_notified(notified)
-
-    path = "/var/jenkins_home/workspace/Insiders_operaciones/insiders_report.html"
-    webbrowser.open(f"file://{path}")
