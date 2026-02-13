@@ -6,13 +6,12 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import base64
 import pickle
-#from email.mime.text import MIMEText
-#from googleapiclient.discovery import build
-#from google.auth.transport.requests import Request
 
-now = datetime.now()
-current_year = now.year
-current_month = now.month
+#now = datetime.now()
+#current_year = now.year
+#current_month = now.month
+current_year = 2026
+current_month = 1
 
 # --- Variables de entorno ---
 FINNHUB_KEY = os.environ.get("FINNHUB_KEY")
