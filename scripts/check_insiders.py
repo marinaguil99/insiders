@@ -11,7 +11,7 @@ import pickle
 #current_year = now.year
 #current_month = now.month
 current_year = 2026
-current_month = 2
+current_month = 3
 
 # --- Variables de entorno ---
 FINNHUB_KEY = os.environ.get("FINNHUB_KEY")
